@@ -18,15 +18,15 @@
 }
 //Константы
 
-const int countThreads = 1024; //Кол во Нитей
-const int countBlocks = 1;
+const int countThreads = 64; //Кол во Нитей
+const int countBlocks = 64;
 
-cudaError_t addWithCuda(int *c, const int *a, const int *b, unsigned int size,unsigned int countBlock,unsigned int countThread);
+cudaError_t addWithCuda(long  long int *c, const long  long int *a, const long  long int *b, long  long int size,unsigned int countBlock,unsigned int countThread);
 
-static void RunVectorSumm(int sizeVector, int countBlock, int countThread);
+static void RunVectorSumm(long  long int sizeVector, int countBlock, int countThread);
 
 //Функция выполнящаяся на GPU
-__global__ void addKernel(int *c, const int *a, const int *b)
+__global__ void addKernel(long  long int *c, const  long  long int *a, const  long  long int *b)
 {
     int i = threadIdx.x;
     c[i] = a[i] + b[i];
@@ -38,19 +38,23 @@ int main()
 	setlocale(LC_ALL,"Russian");
 	srand(time(NULL));
 	//Цикл по размерности вектора от 10 до 24
-	for (int i = 10; i < 24; i++)		
+	for (long  long int i = 1<<10; i < 10e7; i<<=1)
+	{
+		std::cout << "Размерность: " << i << " Блоков: " << countBlocks << " Нитей: " << countThreads;
 		RunVectorSumm(i, countBlocks, countThreads);
+	}
+		
 	
     return 0;
 }
 
-void RunVectorSumm(int sizeVector, int countBlock, int countThread)
+void RunVectorSumm(long  long int sizeVector, int countBlock, int countThread)
 {
 	//Инициализация вектора
-	int arraySize = sizeVector;
-	int *a  = new int[arraySize];
-	int *b = new int[arraySize];
-	int *c = new int[arraySize];
+	long  long int arraySize = sizeVector;
+	long  long int *a  = new long  long int[arraySize];
+	long  long int *b = new long  long int[arraySize];
+	long  long int *c = new long  long int[arraySize];
 
 	for (int i = 0;i < arraySize;i++)
 	{
@@ -81,17 +85,17 @@ void RunVectorSumm(int sizeVector, int countBlock, int countThread)
 	}
 }
 // Helper function for using CUDA to add vectors in parallel.
-cudaError_t addWithCuda(int *c, const int *a, const int *b, unsigned int size, unsigned int countBlock, unsigned int countThread)
+cudaError_t addWithCuda(long  long int *c, const long  long int *a, const long  long int *b, long  long int size, unsigned int countBlock, unsigned int countThread)
 {
-    int *dev_a = 0;
-    int *dev_b = 0;
-    int *dev_c = 0;
+	long  long int *dev_a = 0;
+	long  long int *dev_b = 0;
+	long  long int *dev_c = 0;
     cudaError_t cudaStatus;
 	cudaEvent_t start, stop;
 	float time;
 	cudaEventCreate(&start);
 	cudaEventCreate(&stop);
-
+	cudaEventRecord(start, 0);
 
 	
     // Choose which GPU to run on, change this on a multi-GPU system.
@@ -102,36 +106,36 @@ cudaError_t addWithCuda(int *c, const int *a, const int *b, unsigned int size, u
     }
 
     // Allocate GPU buffers for three vectors (two input, one output)    .
-    cudaStatus = cudaMalloc((void**)&dev_c, size * sizeof(int));
+    cudaStatus = cudaMalloc((void**)&dev_c, size * sizeof(long  long int));
     if (cudaStatus != cudaSuccess) {
         fprintf(stderr, "cudaMalloc failed!");
         goto Error;
     }
 
-    cudaStatus = cudaMalloc((void**)&dev_a, size * sizeof(int));
+    cudaStatus = cudaMalloc((void**)&dev_a, size * sizeof(long  long int));
     if (cudaStatus != cudaSuccess) {
         fprintf(stderr, "cudaMalloc failed!");
         goto Error;
     }
 
-    cudaStatus = cudaMalloc((void**)&dev_b, size * sizeof(int));
+    cudaStatus = cudaMalloc((void**)&dev_b, size * sizeof(long  long int));
     if (cudaStatus != cudaSuccess) {
         fprintf(stderr, "cudaMalloc failed!");
         goto Error;
     }
 
     // Copy input vectors from host memory to GPU buffers.
-    cudaStatus = cudaMemcpy(dev_a, a, size * sizeof(int), cudaMemcpyHostToDevice);
+    cudaStatus = cudaMemcpy(dev_a, a, size * sizeof(long  long int), cudaMemcpyHostToDevice);
     if (cudaStatus != cudaSuccess) {
         fprintf(stderr, "cudaMemcpy failed!");
         goto Error;
     }
 
-	cudaCheckError(cudaMemcpy(dev_b, b, size * sizeof(int), cudaMemcpyHostToDevice));
+	cudaCheckError(cudaMemcpy(dev_b, b, size * sizeof(long  long int), cudaMemcpyHostToDevice));
     
 	
 	//Запуск счетчика Event
-	cudaEventRecord(start, 0);
+	
     
 	//Вычисляем результаты на GPU countBlock - количество блоков(варпов) , countThread - количество нитей
     addKernel<<<countBlock, countThread >>>(dev_c, dev_a, dev_b);
@@ -146,14 +150,11 @@ cudaError_t addWithCuda(int *c, const int *a, const int *b, unsigned int size, u
 
 	cudaCheckError(cudaDeviceSynchronize());
  
-	cudaCheckError(cudaStatus = cudaMemcpy(c, dev_c, size * sizeof(int), cudaMemcpyDeviceToHost));
+	cudaCheckError(cudaStatus = cudaMemcpy(c, dev_c, size * sizeof(long  long int), cudaMemcpyDeviceToHost));
    
 	
 	//Остановка счетчика Event
-	cudaEventSynchronize(stop);
-	cudaEventElapsedTime(&time, start, stop);
-	std::cout << std::endl;
-	printf("Время выполнения: %f ms\n", time);
+	
 
 	//Вывод результата вычислений
 	/*
@@ -184,5 +185,9 @@ Error:
     cudaFree(dev_a);
     cudaFree(dev_b);
     
+	cudaEventSynchronize(stop);
+	cudaEventElapsedTime(&time, start, stop);
+	std::cout << std::endl;
+	printf("Время выполнения: %f ms\n", time);
     return cudaStatus;
 }
